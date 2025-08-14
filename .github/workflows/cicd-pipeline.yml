@@ -18,38 +18,33 @@ on:
 # --- JOBS ---
 # A workflow run is made up of one or more jobs.
 jobs:
-  # --- TEST JOB ---
-  # [cite_start]This job runs tests on multiple operating systems [cite: 3]
   test:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix: # The matrix strategy runs this job multiple times with different values
-        os: [ubuntu-latest, windows-latest, macos-latest] # Values for the operating system
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
-    steps: # A sequence of tasks to be executed
-    - name: Checkout code # Step 1: Downloads your repository code into the runner
+    steps:
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js # Step 2: Sets up the Node.js software
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
 
-    - name: Install dependencies # Step 3: Installs the project's libraries
+    - name: Install dependencies
       run: npm install
 
-    - name: Run tests # Step 4: Runs the test command defined in the project
+    - name: Run tests
       run: npm test
 
-  # --- BUILD JOB ---
-  # [cite_start]This job builds the application, but only after all tests pass [cite: 4]
   build:
     name: Build Application
-    needs: test # This 'needs' keyword ensures that the 'test' job must succeed before this job runs
+    needs: test
     runs-on: ubuntu-latest
-
-    outputs: # Defines outputs that can be used by other jobs
+    outputs:
       build_path: ${{ steps.create_artifact.outputs.build_path }}
 
     steps:
@@ -65,7 +60,7 @@ jobs:
       run: npm install
 
     - name: Create build artifact and define output path
-      id: create_artifact # An ID to reference this step's outputs
+      id: create_artifact
       run: |
         mkdir -p build
         echo "Build files would go here" > build/index.html
@@ -77,21 +72,18 @@ jobs:
         name: my-build
         path: ${{ steps.create_artifact.outputs.build_path }}
 
-  # --- DEPLOY JOB ---
-  # This job deploys the code. [cite_start]It is gated and requires manual approval[cite: 5].
   deploy:
     name: Deploy to Production
-    [cite_start]needs: build # This job runs only after the 'build' job succeeds [cite: 5]
+    needs: build
     runs-on: ubuntu-latest
-    environment: # Defines a deployment environment
+    environment:
       name: production
       url: 'https://your-deployment-url.com'
 
-    # [cite_start]This 'if' condition provides the gate: the job only runs on the main branch AND when manually triggered[cite: 5].
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
 
     steps:
-    - name: Download build artifact # Step 1: Downloads the build files created in the 'build' job
+    - name: Download build artifact
       uses: actions/download-artifact@v4
       with:
         name: my-build
@@ -100,8 +92,8 @@ jobs:
     - name: Display build content
       run: ls -R ./build
 
-    - name: Deploy to production # Step 2: A simulated deployment step
+    - name: Deploy to production
       run: |
         echo "Deploying version ${{ github.event.inputs.version }}..."
-        echo "Deployment would happen here using a secret."
+        echo "Deployment would happen here using secrets."
         echo "Using dummy secret: ${{ secrets.DUMMY_SECRET }}"
