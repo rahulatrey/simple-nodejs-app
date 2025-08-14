@@ -1,0 +1,107 @@
+# Name for your workflow, which will show up in the GitHub Actions tab
+name: Node.js CI/CD Pipeline
+
+# --- TRIGGERS ---
+# This section defines when the workflow will run.
+on:
+  push:
+    branches: [ main ] # Runs when you push code to the main branch
+  pull_request:
+    branches: [ main ] # Runs when a pull request is made to the main branch
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
+    inputs:
+      version:
+        description: 'The semantic version to deploy (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+# --- JOBS ---
+# A workflow run is made up of one or more jobs.
+jobs:
+  # --- TEST JOB ---
+  # [cite_start]This job runs tests on multiple operating systems [cite: 3]
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: # The matrix strategy runs this job multiple times with different values
+        os: [ubuntu-latest, windows-latest, macos-latest] # Values for the operating system
+
+    steps: # A sequence of tasks to be executed
+    - name: Checkout code # Step 1: Downloads your repository code into the runner
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js # Step 2: Sets up the Node.js software
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install dependencies # Step 3: Installs the project's libraries
+      run: npm install
+
+    - name: Run tests # Step 4: Runs the test command defined in the project
+      run: npm test
+
+  # --- BUILD JOB ---
+  # [cite_start]This job builds the application, but only after all tests pass [cite: 4]
+  build:
+    name: Build Application
+    needs: test # This 'needs' keyword ensures that the 'test' job must succeed before this job runs
+    runs-on: ubuntu-latest
+
+    outputs: # Defines outputs that can be used by other jobs
+      build_path: ${{ steps.create_artifact.outputs.build_path }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Create build artifact and define output path
+      id: create_artifact # An ID to reference this step's outputs
+      run: |
+        mkdir -p build
+        echo "Build files would go here" > build/index.html
+        echo "build_path=build" >> $GITHUB_OUTPUT
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-build
+        path: ${{ steps.create_artifact.outputs.build_path }}
+
+  # --- DEPLOY JOB ---
+  # This job deploys the code. [cite_start]It is gated and requires manual approval[cite: 5].
+  deploy:
+    name: Deploy to Production
+    [cite_start]needs: build # This job runs only after the 'build' job succeeds [cite: 5]
+    runs-on: ubuntu-latest
+    environment: # Defines a deployment environment
+      name: production
+      url: 'https://your-deployment-url.com'
+
+    # [cite_start]This 'if' condition provides the gate: the job only runs on the main branch AND when manually triggered[cite: 5].
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Download build artifact # Step 1: Downloads the build files created in the 'build' job
+      uses: actions/download-artifact@v4
+      with:
+        name: my-build
+        path: ./build
+
+    - name: Display build content
+      run: ls -R ./build
+
+    - name: Deploy to production # Step 2: A simulated deployment step
+      run: |
+        echo "Deploying version ${{ github.event.inputs.version }}..."
+        echo "Deployment would happen here using a secret."
+        echo "Using dummy secret: ${{ secrets.DUMMY_SECRET }}"
